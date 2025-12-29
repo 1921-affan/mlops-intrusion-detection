@@ -10,7 +10,7 @@ pipeline {
         stage('Lint') {
             steps {
                 echo "🔍 Running lint checks..."
-                bat '''
+                sh '''
                 python - <<EOF
 import compileall
 ok = compileall.compile_dir("src", quiet=1)
@@ -24,7 +24,7 @@ EOF
         stage('Test') {
             steps {
                 echo "🧪 Running unit tests..."
-                bat '''
+                sh '''
                 pytest tests
                 '''
             }
@@ -33,7 +33,7 @@ EOF
         stage('Build Docker Images') {
             steps {
                 echo "🐳 Building Docker images..."
-                bat '''
+                sh '''
                 docker compose build
                 '''
             }
@@ -42,7 +42,7 @@ EOF
         stage('Restart Services') {
             steps {
                 echo "♻ Restarting services..."
-                bat '''
+                sh '''
                 docker compose down
                 docker compose up -d
                 '''
