@@ -1,0 +1,19 @@
+paths:
+  train_csv: "src/data/processed/UNSW_NB15_training_processed.csv"
+  test_csv: "src/data/processed/UNSW_NB15_testing_filtered.csv"
+  artifacts_dir: "artifacts"
+
+mlflow:
+  # we will run an mlflow server on this URL
+  tracking_uri: "http://127.0.0.1:5000"
+  experiment_name: "unsw_intrusion_detection"
+  run_name: "xgboost_shap_top20"
+
+model:
+  top_k_features: 25
+  n_estimators: 300
+  learning_rate: 0.1
+  max_depth: 6
+  subsample: 0.8
+  colsample_bytree: 0.8
+  random_state: 42

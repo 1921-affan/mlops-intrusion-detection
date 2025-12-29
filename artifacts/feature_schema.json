@@ -1,0 +1,105 @@
+{
+  "features": [
+    {
+      "name": "sttl",
+      "dtype": "int64"
+    },
+    {
+      "name": "ct_dst_sport_ltm",
+      "dtype": "int64"
+    },
+    {
+      "name": "ct_state_ttl",
+      "dtype": "int64"
+    },
+    {
+      "name": "sbytes",
+      "dtype": "int64"
+    },
+    {
+      "name": "proto_enc",
+      "dtype": "int32"
+    },
+    {
+      "name": "smean",
+      "dtype": "int64"
+    },
+    {
+      "name": "ct_srv_dst",
+      "dtype": "int64"
+    },
+    {
+      "name": "ct_srv_src",
+      "dtype": "int64"
+    },
+    {
+      "name": "sbytes_log",
+      "dtype": "float64"
+    },
+    {
+      "name": "dbytes",
+      "dtype": "int64"
+    },
+    {
+      "name": "ct_dst_src_ltm",
+      "dtype": "int64"
+    },
+    {
+      "name": "service_enc",
+      "dtype": "int32"
+    },
+    {
+      "name": "synack",
+      "dtype": "float64"
+    },
+    {
+      "name": "ct_dst_ltm",
+      "dtype": "int64"
+    },
+    {
+      "name": "dload",
+      "dtype": "float64"
+    },
+    {
+      "name": "dmean",
+      "dtype": "int64"
+    },
+    {
+      "name": "dur",
+      "dtype": "float64"
+    },
+    {
+      "name": "ct_src_ltm",
+      "dtype": "int64"
+    },
+    {
+      "name": "rate",
+      "dtype": "float64"
+    },
+    {
+      "name": "dtcpb",
+      "dtype": "int64"
+    },
+    {
+      "name": "sinpkt",
+      "dtype": "float64"
+    },
+    {
+      "name": "sload",
+      "dtype": "float64"
+    },
+    {
+      "name": "stcpb",
+      "dtype": "int64"
+    },
+    {
+      "name": "tcprtt",
+      "dtype": "float64"
+    },
+    {
+      "name": "spkts",
+      "dtype": "int64"
+    }
+  ],
+  "target": "label"
+}

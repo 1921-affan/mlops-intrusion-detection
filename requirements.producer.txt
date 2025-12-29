@@ -1,0 +1,13 @@
+# ===============================
+# PRODUCER MICROSERVICE DEPENDENCIES
+# ===============================
+
+# --- Core Python stack ---
+numpy==1.26.4
+pandas==2.0.3
+
+# --- Redis (stream producer) ---
+redis==5.0.1
+
+# --- Config handling ---
+pyyaml==6.0.1

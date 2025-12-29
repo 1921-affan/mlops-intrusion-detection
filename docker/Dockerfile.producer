@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Minimal system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# ✅ Correct requirements for PRODUCER
+COPY requirements.producer.txt .
+RUN pip install --no-cache-dir -r requirements.producer.txt
+
+# Project code
+COPY src ./src
+COPY configs ./configs
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "-m", "src.streaming.producer"]

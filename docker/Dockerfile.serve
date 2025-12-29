@@ -1,0 +1,41 @@
+FROM python:3.11-slim
+
+# ---------- Environment ----------
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# ---------- System dependencies (REQUIRED for ML stack) ----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    gfortran \
+    libstdc++6 \
+    libgomp1 \
+    libffi-dev \
+    libssl-dev \
+    libblas-dev \
+    liblapack-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------- Python dependencies ----------
+COPY requirements.serve.txt .
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.serve.txt
+
+# ---------- Project code ----------
+COPY src ./src
+COPY configs ./configs
+
+# ---------- MLflow + MinIO (NON-SECRET for local dev) ----------
+ENV MLFLOW_TRACKING_URI=http://mlflow:5000
+ENV MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+ENV AWS_ACCESS_KEY_ID=minioadmin
+ENV AWS_SECRET_ACCESS_KEY=minioadmin
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.serve:app", "--host", "0.0.0.0", "--port", "8000"]
