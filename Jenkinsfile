@@ -8,6 +8,11 @@ pipeline {
     stages {
 
         stage('Lint') {
+            agent {
+                docker {
+                    image 'python:3.10-slim'
+                }
+            }
             steps {
                 echo "🔍 Running lint checks..."
                 sh '''
@@ -22,9 +27,15 @@ EOF
         }
 
         stage('Test') {
+            agent {
+                docker {
+                    image 'python:3.10-slim'
+                }
+            }
             steps {
                 echo "🧪 Running unit tests..."
                 sh '''
+                pip install -r requirements.train.txt
                 pytest tests
                 '''
             }
