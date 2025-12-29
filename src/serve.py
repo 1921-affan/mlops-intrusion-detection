@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional
 import io
+import tensorflow as tf
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException
 
