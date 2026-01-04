@@ -7,15 +7,15 @@ pipeline {
 
     stages {
 
-        stage('Checkout SCM') {
+        stage('Prepare Workspace') {
             steps {
-                checkout scm
+                deleteDir()   // hard reset workspace
             }
         }
 
-        stage('Clean Workspace') {
+        stage('Checkout SCM') {
             steps {
-                cleanWs()
+                checkout scm
             }
         }
 
