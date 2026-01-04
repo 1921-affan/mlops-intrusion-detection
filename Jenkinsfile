@@ -2,6 +2,11 @@ pipeline {
     agent any
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
 
         stage('Lint (Syntax Check)') {
             steps {
@@ -11,7 +16,7 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  python -m py_compile src/**/*.py
+                  python -m py_compile $(find src -name "*.py")
                 '''
             }
         }
@@ -32,9 +37,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 echo "🐳 Building Docker images..."
-                sh '''
-                docker compose build
-                '''
+                sh 'docker compose build'
             }
         }
 
