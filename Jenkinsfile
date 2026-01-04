@@ -27,7 +27,7 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  python -m py_compile $(find src -name "*.py")
+                  python -m compileall src
                 '''
             }
         }
