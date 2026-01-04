@@ -1,7 +1,18 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     stages {
+
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Clean Workspace') {
             steps {
                 cleanWs()
@@ -36,14 +47,12 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                echo "🐳 Building Docker images..."
                 sh 'docker compose build'
             }
         }
 
         stage('Restart Services') {
             steps {
-                echo "♻️ Restarting services..."
                 sh '''
                 docker compose down
                 docker compose up -d
