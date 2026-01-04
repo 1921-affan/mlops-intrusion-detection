@@ -9,7 +9,7 @@ pipeline {
 
         stage('Prepare Workspace') {
             steps {
-                deleteDir()   // hard reset workspace
+                deleteDir()
             }
         }
 
@@ -27,7 +27,7 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  python -m compileall src
+                  python -m compileall .
                 '''
             }
         }
@@ -40,22 +40,22 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  sh -c "pip install pytest && pytest tests || true"
+                  sh -c "pip install pytest && pytest src || true"
                 '''
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker compose build'
+                sh 'docker-compose build'
             }
         }
 
         stage('Restart Services') {
             steps {
                 sh '''
-                docker compose down
-                docker compose up -d
+                docker-compose down
+                docker-compose up -d
                 '''
             }
         }
