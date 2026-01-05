@@ -11,14 +11,19 @@ import yaml
 from sklearn.metrics import accuracy_score, classification_report
 
 from src.data.loader import preprocess_data, load_processed_data
-from src.cache.redis_cache import (
-    get_cached_prediction,
-    set_cached_prediction,
-)
+
+# 🔥 DEMO ONLY — Redis cache disabled
+# from src.cache.redis_cache import (
+#     get_cached_prediction,
+#     set_cached_prediction,
+# )
+
 from src.metrics.prometheus_metrics import (
     INFERENCE_REQUESTS,
     CACHE_HITS,
     INFERENCE_LATENCY,
+    PREDICTION_NORMAL,
+    PREDICTION_FRAUD,
 )
 
 # -------------------------------------------------------------------
@@ -37,7 +42,7 @@ CONFIG_PATH = Path("configs/config.yaml")
 MODEL_NAME = "model_top20"
 MODEL_ALIAS = "production"
 
-# ⚠️ FIXED FEATURE ORDER — MUST MATCH TRAINING
+# ⚠️ MUST MATCH TRAINING ORDER EXACTLY
 FEATURE_COLUMNS = [
     "sttl",
     "ct_dst_sport_ltm",
@@ -84,7 +89,7 @@ def load_model():
     global _model
     if _model is None:
         model_uri = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
-        logger.info("Loading SKLEARN model: %s", model_uri)
+        logger.info("Loading model from MLflow: %s", model_uri)
         _model = mlflow.sklearn.load_model(model_uri)
     return _model
 
@@ -106,22 +111,19 @@ def preprocess_raw_batch(
 
 
 # -------------------------------------------------------------------
-# Inference (STREAMING + REDIS CACHE + PROMETHEUS)
+# Inference (STREAMING + PROMETHEUS) — CACHE DISABLED (DEMO)
 # -------------------------------------------------------------------
 def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
     model = load_model()
     logger.info("Starting inference on batch size %d", len(raw_df))
 
-    # Preprocess
     X_proc, y_true = preprocess_raw_batch(raw_df)
 
     # Strict column order
     X_top = X_proc[FEATURE_COLUMNS]
 
-    # Convert to NumPy (avoids MLflow + dtype issues)
+    # Convert to NumPy float
     X_np = X_top.to_numpy(dtype=float)
-
-    logger.info("Inference input shape: %s", X_np.shape)
 
     predictions = []
 
@@ -131,18 +133,20 @@ def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
 
         feature_list = row.tolist()
 
-        # Redis cache lookup
-        cached_pred = get_cached_prediction(feature_list)
-        if cached_pred is not None:
-            CACHE_HITS.inc()
-            predictions.append(cached_pred)
-            continue
+        # 🔥 DEMO ONLY — Redis cache fully bypassed
+        cached_pred = None
 
-        # Model inference (CRITICAL: disable feature validation)
         pred = int(model.predict([row], validate_features=False)[0])
         predictions.append(pred)
 
-        set_cached_prediction(feature_list, pred)
+        # 🔥 CLASS METRICS (THIS IS WHAT YOU NEED FOR GRAFANA)
+        if pred == 0:
+            PREDICTION_NORMAL.inc()
+        else:
+            PREDICTION_FRAUD.inc()
+
+        # 🔥 DEMO ONLY — do NOT write to Redis cache
+        # set_cached_prediction(feature_list, pred)
 
         INFERENCE_LATENCY.observe(time.time() - start_time)
 

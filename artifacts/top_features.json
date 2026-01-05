@@ -20,8 +20,8 @@
   "sinpkt",
   "sload",
   "dur",
-  "dttl",
   "spkts",
-  "sjit",
-  "tcprtt"
+  "dttl",
+  "tcprtt",
+  "sjit"
 ]

@@ -4,10 +4,12 @@ import yaml
 import redis
 import pandas as pd
 from pathlib import Path
-import mlflow
+
+from prometheus_client import start_http_server
+
 from src.streaming.state import is_running
 from src.inference import predict_on_raw_df
-from prometheus_client import start_http_server
+from src.metrics.prometheus_metrics import REDIS_STREAM_LAG
 
 CFG_PATH = Path("configs/streaming.yaml")
 
@@ -19,9 +21,9 @@ def load_cfg():
 
 def get_redis(cfg):
     return redis.Redis(
-        host=cfg["redis"]["host"],   # ✅ must be "redis" in Docker
+        host=cfg["redis"]["host"],
         port=cfg["redis"]["port"],
-        decode_responses=True
+        decode_responses=True,
     )
 
 
@@ -31,20 +33,15 @@ def init_consumer_group(r, cfg):
             cfg["redis"]["stream_name"],
             cfg["redis"]["consumer_group"],
             id="0",
-            mkstream=True
+            mkstream=True,
         )
     except redis.exceptions.ResponseError as e:
-        # BUSYGROUP = already exists (normal on restart)
         if "BUSYGROUP" not in str(e):
             raise
 
 
-def update_stats(r, key, value=1):
-    r.hincrby(key, value, 1)
-
-
 def run_consumer():
-    # Start Prometheus metrics server
+    # 🔥 Prometheus metrics endpoint
     start_http_server(8001)
 
     cfg = load_cfg()
@@ -53,7 +50,6 @@ def run_consumer():
     stream = cfg["redis"]["stream_name"]
     group = cfg["redis"]["consumer_group"]
     consumer = cfg["redis"]["consumer_name"]
-    stats_key = cfg["stats"]["redis_prefix"]
 
     init_consumer_group(r, cfg)
 
@@ -69,8 +65,12 @@ def run_consumer():
             consumername=consumer,
             streams={stream: ">"},
             count=cfg["consumer"]["read_count"],
-            block=cfg["consumer"]["block_ms"]
+            block=cfg["consumer"]["block_ms"],
         )
+
+        # 🔥 Redis stream lag (authoritative)
+        pending_info = r.xpending(stream, group)
+        REDIS_STREAM_LAG.set(pending_info["pending"])
 
         for _, msgs in messages:
             rows = []
@@ -84,16 +84,7 @@ def run_consumer():
                 continue
 
             df = pd.DataFrame(rows)
-
-            result = predict_on_raw_df(df)
-
-            preds = result["pred_labels"]
-            counts = preds.value_counts().to_dict()
-
-            for label, count in counts.items():
-                r.hincrby(stats_key, label, count)
-
-            r.hincrby(stats_key, "total_processed", len(df))
+            predict_on_raw_df(df)
 
             for msg_id in ids:
                 r.xack(stream, group, msg_id)

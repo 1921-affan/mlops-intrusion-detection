@@ -38,8 +38,23 @@ MODEL_ALIAS = "production"
 USE_SHAP = True
 
 
+def enforce_stable_dtypes(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Enforce inference-safe dtypes:
+    - ints   -> int32
+    - floats -> float32
+    """
+    df = df.copy()
+    for col in df.columns:
+        if df[col].dtype in ["int64", "int32"]:
+            df[col] = df[col].astype("int32")
+        else:
+            df[col] = df[col].astype("float32")
+    return df
+
+
 def main():
-    # ---------- CONFIG ----------
+    # ================= CONFIG =================
     with open(CONFIG_PATH, "r") as f:
         config = yaml.safe_load(f)
 
@@ -49,23 +64,18 @@ def main():
     artifacts_dir = Path(config["paths"]["artifacts_dir"])
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # ---------- MLFLOW ----------
+    # ================= MLFLOW =================
     mlflow.set_tracking_uri("http://localhost:5000")
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 
-    # ---------- DATA ----------
+    # ================= DATA =================
     train_df, test_df = load_processed_data(train_path, test_path)
 
     X_full, y_full, X_test_full, y_test, feature_cols = preprocess_data(
         train_df, test_df
     )
 
-    # 🔒 FORCE STABLE DTYPES (CRITICAL FOR INFERENCE)
-    for col in X_full.columns:
-        if X_full[col].dtype in ["int64", "int32"]:
-            X_full[col] = X_full[col].astype("int32")
-        else:
-            X_full[col] = X_full[col].astype("float32")
+    X_full = enforce_stable_dtypes(X_full)
 
     X_tr, X_val, y_tr, y_val = train_test_split(
         X_full,
@@ -75,22 +85,22 @@ def main():
         stratify=y_full,
     )
 
-    # ---------- RUN ----------
+    # ================= RUN =================
     with mlflow.start_run(run_name=config["mlflow"]["run_name"]) as run:
 
         # =========================================================
-        # 4️⃣ LOG PARAMETERS
+        # 1️⃣ LOG PARAMETERS (VISIBLE IN UI)
         # =========================================================
         mlflow.log_params({
             "model_type": "XGBoost",
-            "top_k_features": config["model"]["top_k_features"],
+            "top_k_features": int(config["model"]["top_k_features"]),
             "train_rows": int(X_tr.shape[0]),
             "val_rows": int(X_val.shape[0]),
             "num_features_full": int(X_tr.shape[1]),
         })
 
         # =========================================================
-        # BASE MODEL
+        # 2️⃣ BASE MODEL (FULL FEATURES)
         # =========================================================
         base_model = create_xgb_model()
         base_model.fit(X_tr, y_tr)
@@ -102,7 +112,7 @@ def main():
         mlflow.log_metric("val_full_accuracy", val_acc)
 
         # =========================================================
-        # SHAP → SELECT TOP FEATURES
+        # 3️⃣ SHAP → TOP FEATURES
         # =========================================================
         if USE_SHAP:
             shap_importance = compute_shap_importance(
@@ -125,12 +135,13 @@ def main():
                 top_features = json.load(f)
 
         # =========================================================
-        # 5️⃣ LOG DATASET INFO
+        # 4️⃣ DATASET INFO (ARTIFACT – SAFE)
         # =========================================================
         dataset_info = {
             "train_shape": X_tr.shape,
             "val_shape": X_val.shape,
-            "features": list(X_tr.columns),
+            "num_features": int(X_tr.shape[1]),
+            "feature_names": list(X_tr.columns),
         }
 
         dataset_info_path = artifacts_dir / "dataset_info.json"
@@ -140,19 +151,13 @@ def main():
         mlflow.log_artifact(str(dataset_info_path))
 
         # =========================================================
-        # TOP-K DATA
+        # 5️⃣ TOP-K DATA
         # =========================================================
-        X_tr_top = X_tr[top_features].copy()
-        X_val_top = X_val[top_features].copy()
-
-        for col in X_tr_top.columns:
-            if X_tr_top[col].dtype in ["int64", "int32"]:
-                X_tr_top[col] = X_tr_top[col].astype("int32")
-            else:
-                X_tr_top[col] = X_tr_top[col].astype("float32")
+        X_tr_top = enforce_stable_dtypes(X_tr[top_features])
+        X_val_top = enforce_stable_dtypes(X_val[top_features])
 
         # =========================================================
-        # TOP-K MODEL
+        # 6️⃣ TOP-K MODEL
         # =========================================================
         model_top = create_xgb_model()
         model_top.fit(X_tr_top, y_tr)
@@ -160,30 +165,30 @@ def main():
         y_val_pred = model_top.predict(X_val_top)
         y_val_proba = model_top.predict_proba(X_val_top)[:, 1].astype("float32")
 
+        # =========================================================
+        # 7️⃣ METRICS
+        # =========================================================
         mlflow.log_metric("val_top_accuracy", float((y_val_pred == y_val).mean()))
         mlflow.log_metric("precision", float(precision_score(y_val, y_val_pred)))
         mlflow.log_metric("recall", float(recall_score(y_val, y_val_pred)))
         mlflow.log_metric("f1_score", float(f1_score(y_val, y_val_pred)))
 
         # =========================================================
-        # 6️⃣ CONFUSION MATRIX
+        # 8️⃣ CONFUSION MATRIX
         # =========================================================
         cm = confusion_matrix(y_val, y_val_pred)
-        disp = ConfusionMatrixDisplay(cm)
-        disp.plot(cmap="Blues")
+        ConfusionMatrixDisplay(cm).plot(cmap="Blues")
 
         cm_path = artifacts_dir / "confusion_matrix.png"
         plt.savefig(cm_path, bbox_inches="tight")
         plt.close()
-
         mlflow.log_artifact(str(cm_path))
 
         # =========================================================
-        # 7️⃣ ROC CURVE
+        # 9️⃣ ROC CURVE
         # =========================================================
         fpr, tpr, _ = roc_curve(y_val, y_val_proba)
         roc_auc = auc(fpr, tpr)
-
         mlflow.log_metric("roc_auc", float(roc_auc))
 
         plt.figure()
@@ -196,11 +201,10 @@ def main():
         roc_path = artifacts_dir / "roc_curve.png"
         plt.savefig(roc_path, bbox_inches="tight")
         plt.close()
-
         mlflow.log_artifact(str(roc_path))
 
         # =========================================================
-        # 8️⃣ FEATURE IMPORTANCE (NON-SHAP)
+        # 🔟 FEATURE IMPORTANCE (NON-SHAP)
         # =========================================================
         importances = model_top.feature_importances_
         indices = np.argsort(importances)[::-1]
@@ -217,11 +221,10 @@ def main():
         fi_path = artifacts_dir / "feature_importance.png"
         plt.savefig(fi_path, bbox_inches="tight")
         plt.close()
-
         mlflow.log_artifact(str(fi_path))
 
         # =========================================================
-        # MODEL LOGGING
+        # 11️⃣ MODEL LOGGING (INFERENCE-SAFE)
         # =========================================================
         signature = infer_signature(
             X_tr_top,
@@ -236,7 +239,7 @@ def main():
         )
 
         # =========================================================
-        # REGISTER MODEL
+        # 12️⃣ REGISTER MODEL
         # =========================================================
         client = MlflowClient()
         run_id = run.info.run_id
