@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 import yaml
 
@@ -46,6 +45,7 @@ def main():
 
     train_path = config["paths"]["train_csv"]
     test_path = config["paths"]["test_csv"]
+
     artifacts_dir = Path(config["paths"]["artifacts_dir"])
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -60,7 +60,7 @@ def main():
         train_df, test_df
     )
 
-    # 🔒 FORCE STABLE DTYPES (CRITICAL)
+    # 🔒 FORCE STABLE DTYPES (CRITICAL FOR INFERENCE)
     for col in X_full.columns:
         if X_full[col].dtype in ["int64", "int32"]:
             X_full[col] = X_full[col].astype("int32")
@@ -78,7 +78,20 @@ def main():
     # ---------- RUN ----------
     with mlflow.start_run(run_name=config["mlflow"]["run_name"]) as run:
 
-        # ===== BASE MODEL =====
+        # =========================================================
+        # 4️⃣ LOG PARAMETERS
+        # =========================================================
+        mlflow.log_params({
+            "model_type": "XGBoost",
+            "top_k_features": config["model"]["top_k_features"],
+            "train_rows": int(X_tr.shape[0]),
+            "val_rows": int(X_val.shape[0]),
+            "num_features_full": int(X_tr.shape[1]),
+        })
+
+        # =========================================================
+        # BASE MODEL
+        # =========================================================
         base_model = create_xgb_model()
         base_model.fit(X_tr, y_tr)
 
@@ -88,7 +101,9 @@ def main():
         mlflow.log_metric("train_full_accuracy", train_acc)
         mlflow.log_metric("val_full_accuracy", val_acc)
 
-        # ===== SHAP =====
+        # =========================================================
+        # SHAP → SELECT TOP FEATURES
+        # =========================================================
         if USE_SHAP:
             shap_importance = compute_shap_importance(
                 base_model,
@@ -100,15 +115,33 @@ def main():
                 k=config["model"]["top_k_features"],
             )
 
-            with open(artifacts_dir / "top_features.json", "w") as f:
+            top_features_path = artifacts_dir / "top_features.json"
+            with open(top_features_path, "w") as f:
                 json.dump(top_features, f, indent=2)
 
-            mlflow.log_artifact(str(artifacts_dir / "top_features.json"))
+            mlflow.log_artifact(str(top_features_path))
         else:
             with open(artifacts_dir / "top_features.json", "r") as f:
                 top_features = json.load(f)
 
-        # ===== TOP-K DATA =====
+        # =========================================================
+        # 5️⃣ LOG DATASET INFO
+        # =========================================================
+        dataset_info = {
+            "train_shape": X_tr.shape,
+            "val_shape": X_val.shape,
+            "features": list(X_tr.columns),
+        }
+
+        dataset_info_path = artifacts_dir / "dataset_info.json"
+        with open(dataset_info_path, "w") as f:
+            json.dump(dataset_info, f, indent=2)
+
+        mlflow.log_artifact(str(dataset_info_path))
+
+        # =========================================================
+        # TOP-K DATA
+        # =========================================================
         X_tr_top = X_tr[top_features].copy()
         X_val_top = X_val[top_features].copy()
 
@@ -118,35 +151,39 @@ def main():
             else:
                 X_tr_top[col] = X_tr_top[col].astype("float32")
 
-        # ===== TOP-K MODEL =====
+        # =========================================================
+        # TOP-K MODEL
+        # =========================================================
         model_top = create_xgb_model()
         model_top.fit(X_tr_top, y_tr)
 
         y_val_pred = model_top.predict(X_val_top)
-        y_val_proba = model_top.predict_proba(X_val_top)[:, 1]
+        y_val_proba = model_top.predict_proba(X_val_top)[:, 1].astype("float32")
 
-        # 🔒 Convert to Python floats
-        y_val_proba = y_val_proba.astype("float32")
-
-        # ===== METRICS =====
         mlflow.log_metric("val_top_accuracy", float((y_val_pred == y_val).mean()))
         mlflow.log_metric("precision", float(precision_score(y_val, y_val_pred)))
         mlflow.log_metric("recall", float(recall_score(y_val, y_val_pred)))
         mlflow.log_metric("f1_score", float(f1_score(y_val, y_val_pred)))
 
-        # ===== CONFUSION MATRIX =====
+        # =========================================================
+        # 6️⃣ CONFUSION MATRIX
+        # =========================================================
         cm = confusion_matrix(y_val, y_val_pred)
         disp = ConfusionMatrixDisplay(cm)
         disp.plot(cmap="Blues")
 
         cm_path = artifacts_dir / "confusion_matrix.png"
-        plt.savefig(cm_path)
+        plt.savefig(cm_path, bbox_inches="tight")
         plt.close()
+
         mlflow.log_artifact(str(cm_path))
 
-        # ===== ROC CURVE =====
+        # =========================================================
+        # 7️⃣ ROC CURVE
+        # =========================================================
         fpr, tpr, _ = roc_curve(y_val, y_val_proba)
         roc_auc = auc(fpr, tpr)
+
         mlflow.log_metric("roc_auc", float(roc_auc))
 
         plt.figure()
@@ -157,26 +194,50 @@ def main():
         plt.legend()
 
         roc_path = artifacts_dir / "roc_curve.png"
-        plt.savefig(roc_path)
+        plt.savefig(roc_path, bbox_inches="tight")
         plt.close()
+
         mlflow.log_artifact(str(roc_path))
 
-        # ===== MODEL LOGGING =====
+        # =========================================================
+        # 8️⃣ FEATURE IMPORTANCE (NON-SHAP)
+        # =========================================================
+        importances = model_top.feature_importances_
+        indices = np.argsort(importances)[::-1]
+
+        plt.figure(figsize=(8, 5))
+        plt.bar(range(len(importances)), importances[indices])
+        plt.xticks(
+            range(len(importances)),
+            np.array(top_features)[indices],
+            rotation=90,
+        )
+        plt.title("Feature Importance")
+
+        fi_path = artifacts_dir / "feature_importance.png"
+        plt.savefig(fi_path, bbox_inches="tight")
+        plt.close()
+
+        mlflow.log_artifact(str(fi_path))
+
+        # =========================================================
+        # MODEL LOGGING
+        # =========================================================
         signature = infer_signature(
             X_tr_top,
             model_top.predict(X_tr_top),
         )
 
-        input_example = X_tr_top.head(5)
-
         mlflow.sklearn.log_model(
             sk_model=model_top,
             artifact_path="model",
             signature=signature,
-            input_example=input_example,
+            input_example=X_tr_top.head(5),
         )
 
-        # ===== REGISTER =====
+        # =========================================================
+        # REGISTER MODEL
+        # =========================================================
         client = MlflowClient()
         run_id = run.info.run_id
 
