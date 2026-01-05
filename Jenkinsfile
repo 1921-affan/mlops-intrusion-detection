@@ -3,6 +3,7 @@ pipeline {
 
     options {
         skipDefaultCheckout(true)
+        timestamps()
     }
 
     stages {
@@ -13,13 +14,13 @@ pipeline {
             }
         }
 
-        stage('Checkout SCM') {
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Lint (Syntax Check)') {
+        stage('Lint (Python Syntax)') {
             steps {
                 echo "🔍 Running Python syntax check..."
                 sh '''
@@ -27,12 +28,12 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  python -m compileall .
+                  python -m compileall src
                 '''
             }
         }
 
-        stage('Tests') {
+        stage('Run Tests') {
             steps {
                 echo "🧪 Running tests..."
                 sh '''
@@ -40,26 +41,16 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  sh -c "pip install pytest && pytest src || true"
+                  sh -c "pip install pytest && pytest tests || true"
                 '''
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker-compose build'
-            }
-        }
-
-        stage('Restart Services') {
-            steps {
+                echo "🐳 Building Docker images..."
                 sh '''
-                echo "🧹 Cleaning old containers..."
-                docker-compose down --remove-orphans || true
-                docker rm -f consumer producer api mlflow redis minio grafana prometheus || true
-
-                echo "🚀 Starting services..."
-                docker-compose up -d
+                docker compose build
                 '''
             }
         }
@@ -67,10 +58,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ CI Pipeline completed successfully"
+            echo "✅ CI pipeline completed successfully"
         }
         failure {
-            echo "❌ CI Pipeline failed"
+            echo "❌ CI pipeline failed"
         }
     }
 }
