@@ -40,7 +40,7 @@ pipeline {
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  sh -c "pip install pytest && pytest src || true"
+                  sh -c "pip install pytest && pytest || true"
                 '''
             }
         }
