@@ -4,11 +4,24 @@ from pathlib import Path
 import yaml
 
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
 import mlflow
 import mlflow.sklearn
 from mlflow.models import infer_signature
 from mlflow.tracking import MlflowClient
+
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    roc_curve,
+    auc,
+    precision_score,
+    recall_score,
+    f1_score,
+)
 
 # ================= PROJECT IMPORTS =================
 from src.data.loader import load_processed_data, preprocess_data
@@ -47,10 +60,12 @@ def main():
         train_df, test_df
     )
 
-    # 🔒 FORCE STABLE DTYPES (THIS FIXES proto_enc)
+    # 🔒 FORCE STABLE DTYPES (CRITICAL)
     for col in X_full.columns:
-        if X_full[col].dtype == "int64":
+        if X_full[col].dtype in ["int64", "int32"]:
             X_full[col] = X_full[col].astype("int32")
+        else:
+            X_full[col] = X_full[col].astype("float32")
 
     X_tr, X_val, y_tr, y_val = train_test_split(
         X_full,
@@ -67,14 +82,11 @@ def main():
         base_model = create_xgb_model()
         base_model.fit(X_tr, y_tr)
 
-        mlflow.log_metric(
-            "train_full_accuracy",
-            float(evaluate_model(base_model, X_tr, y_tr, "train_full")),
-        )
-        mlflow.log_metric(
-            "val_full_accuracy",
-            float(evaluate_model(base_model, X_val, y_val, "val_full")),
-        )
+        train_acc = float(evaluate_model(base_model, X_tr, y_tr, "train_full"))
+        val_acc = float(evaluate_model(base_model, X_val, y_val, "val_full"))
+
+        mlflow.log_metric("train_full_accuracy", train_acc)
+        mlflow.log_metric("val_full_accuracy", val_acc)
 
         # ===== SHAP =====
         if USE_SHAP:
@@ -100,25 +112,56 @@ def main():
         X_tr_top = X_tr[top_features].copy()
         X_val_top = X_val[top_features].copy()
 
-        # 🔒 FORCE AGAIN FOR SAFETY
         for col in X_tr_top.columns:
-            if X_tr_top[col].dtype == "int64":
+            if X_tr_top[col].dtype in ["int64", "int32"]:
                 X_tr_top[col] = X_tr_top[col].astype("int32")
+            else:
+                X_tr_top[col] = X_tr_top[col].astype("float32")
 
         # ===== TOP-K MODEL =====
         model_top = create_xgb_model()
         model_top.fit(X_tr_top, y_tr)
 
-        mlflow.log_metric(
-            "train_top_accuracy",
-            float(evaluate_model(model_top, X_tr_top, y_tr, "train_top")),
-        )
-        mlflow.log_metric(
-            "val_top_accuracy",
-            float(evaluate_model(model_top, X_val_top, y_val, "val_top")),
-        )
+        y_val_pred = model_top.predict(X_val_top)
+        y_val_proba = model_top.predict_proba(X_val_top)[:, 1]
 
-        # ===== GUARANTEED SCHEMA =====
+        # 🔒 Convert to Python floats
+        y_val_proba = y_val_proba.astype("float32")
+
+        # ===== METRICS =====
+        mlflow.log_metric("val_top_accuracy", float((y_val_pred == y_val).mean()))
+        mlflow.log_metric("precision", float(precision_score(y_val, y_val_pred)))
+        mlflow.log_metric("recall", float(recall_score(y_val, y_val_pred)))
+        mlflow.log_metric("f1_score", float(f1_score(y_val, y_val_pred)))
+
+        # ===== CONFUSION MATRIX =====
+        cm = confusion_matrix(y_val, y_val_pred)
+        disp = ConfusionMatrixDisplay(cm)
+        disp.plot(cmap="Blues")
+
+        cm_path = artifacts_dir / "confusion_matrix.png"
+        plt.savefig(cm_path)
+        plt.close()
+        mlflow.log_artifact(str(cm_path))
+
+        # ===== ROC CURVE =====
+        fpr, tpr, _ = roc_curve(y_val, y_val_proba)
+        roc_auc = auc(fpr, tpr)
+        mlflow.log_metric("roc_auc", float(roc_auc))
+
+        plt.figure()
+        plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.4f}")
+        plt.plot([0, 1], [0, 1], linestyle="--")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.legend()
+
+        roc_path = artifacts_dir / "roc_curve.png"
+        plt.savefig(roc_path)
+        plt.close()
+        mlflow.log_artifact(str(roc_path))
+
+        # ===== MODEL LOGGING =====
         signature = infer_signature(
             X_tr_top,
             model_top.predict(X_tr_top),
