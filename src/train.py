@@ -92,7 +92,7 @@ def main():
         if USE_SHAP:
             shap_importance = compute_shap_importance(
                 base_model,
-                X_val.sample(n=5000, random_state=42),
+                X_val.sample(n=800, random_state=42),
             )
 
             top_features = select_top_k_features(
