@@ -21,7 +21,7 @@ pipeline {
 
         stage('Lint (Syntax Check)') {
             steps {
-                echo "🔍 Running Python syntax check in Docker..."
+                echo "🔍 Running Python syntax check..."
                 sh '''
                 docker run --rm \
                   -v "$PWD:/app" \
@@ -34,13 +34,13 @@ pipeline {
 
         stage('Tests') {
             steps {
-                echo "🧪 Running tests in Docker..."
+                echo "🧪 Running tests..."
                 sh '''
                 docker run --rm \
                   -v "$PWD:/app" \
                   -w /app \
                   python:3.11 \
-                  sh -c "pip install pytest && pytest || true"
+                  sh -c "pip install pytest && pytest src || true"
                 '''
             }
         }
@@ -54,7 +54,11 @@ pipeline {
         stage('Restart Services') {
             steps {
                 sh '''
-                docker-compose down
+                echo "🧹 Cleaning old containers..."
+                docker-compose down --remove-orphans || true
+                docker rm -f consumer producer api mlflow redis minio grafana prometheus || true
+
+                echo "🚀 Starting services..."
                 docker-compose up -d
                 '''
             }
