@@ -11,12 +11,10 @@ import yaml
 from sklearn.metrics import accuracy_score, classification_report
 
 from src.data.loader import preprocess_data, load_processed_data
-
-# 🔥 DEMO ONLY — Redis cache disabled
-# from src.cache.redis_cache import (
-#     get_cached_prediction,
-#     set_cached_prediction,
-# )
+from src.cache.redis_cache import (
+    get_cached_prediction,
+    set_cached_prediction,
+)
 
 from src.metrics.prometheus_metrics import (
     INFERENCE_REQUESTS,
@@ -111,7 +109,7 @@ def preprocess_raw_batch(
 
 
 # -------------------------------------------------------------------
-# Inference (STREAMING + PROMETHEUS) — CACHE DISABLED (DEMO)
+# Inference (STREAMING + REDIS CACHE + PROMETHEUS)
 # -------------------------------------------------------------------
 def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
     model = load_model()
@@ -122,7 +120,7 @@ def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
     # Strict column order
     X_top = X_proc[FEATURE_COLUMNS]
 
-    # Convert to NumPy float
+    # Convert to NumPy float (prevents dtype bugs)
     X_np = X_top.to_numpy(dtype=float)
 
     predictions = []
@@ -133,20 +131,26 @@ def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
 
         feature_list = row.tolist()
 
-        # 🔥 DEMO ONLY — Redis cache fully bypassed
-        cached_pred = None
+        # ✅ CHECK CACHE FIRST
+        cached_pred = get_cached_prediction(feature_list)
+        if cached_pred is not None:
+            CACHE_HITS.inc()
+            predictions.append(cached_pred)
+            INFERENCE_LATENCY.observe(time.time() - start_time)
+            continue
 
+        # ❌ Cache miss → run model
         pred = int(model.predict([row], validate_features=False)[0])
         predictions.append(pred)
 
-        # 🔥 CLASS METRICS (THIS IS WHAT YOU NEED FOR GRAFANA)
+        # 🔥 CLASS METRICS
         if pred == 0:
             PREDICTION_NORMAL.inc()
         else:
             PREDICTION_FRAUD.inc()
 
-        # 🔥 DEMO ONLY — do NOT write to Redis cache
-        # set_cached_prediction(feature_list, pred)
+        # ✅ STORE RESULT IN CACHE
+        set_cached_prediction(feature_list, pred)
 
         INFERENCE_LATENCY.observe(time.time() - start_time)
 
