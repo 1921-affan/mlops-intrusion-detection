@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// Create an Axios instance with the base URL for the backend
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
     headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // Bypasses Ngrok warning page
     },
 });
 
