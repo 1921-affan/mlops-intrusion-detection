@@ -7,7 +7,7 @@ redis:
 
 producer:
   csv_path: src/data/processed/UNSW_NB15_testing_filtered.csv
-  batch_size: 100
+  batch_size: 1
   sleep_seconds: 0.2
 
 consumer:

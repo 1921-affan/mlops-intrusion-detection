@@ -1,0 +1,75 @@
+# Intrusion Detection System - Final Walkthrough
+
+This document outlines the completed features of the AI-powered Intrusion Detection System.
+
+## 1. System Control
+The **Home Page** provides a central command center to manage the inference pipeline.
+-   **Start/Stop Detection:** Controls the streaming inference process.
+-   **System Status:** Real-time indicator of the detection engine's state.
+
+## 2. Live Logs Dashboard
+A real-time view of network traffic analysis.
+-   **Real-Time Feed:** Displays inference results as they happen.
+-   **IP Randomization:** Simulates realistic traffic flow with randomized Source/Destination IPs (`192.168.x.x`, `10.x.x.x`).
+-   **Attack Classification:** Transparently shows:
+    -   **Status:** The AI Model's prediction (Safe 🟢 / Detected 🔴).
+    -   **Attack Type:** The actual ground truth label (e.g., *Exploits*, *Generic*).
+    -   **Insight:** Mismatches between Status and Attack Type reveal "False Negatives," acting as a model debugger.
+
+## 3. Model Intelligence
+The **Model Info** page provides deep transparency into the production AI.
+-   **Metadata:** Displays Model URI, Run ID, and Version from MLflow.
+-   **Parameters:** Shows training configuration (e.g., `model_type: XGBoost`, `top_k_features: 25`).
+-   **Performance Metrics:** Live fetch of key metrics:
+    -   **F1 Score, Precision, Recall, ROC AUC**
+-   **Visual Artifacts:** Automatically renders plots generated during training:
+    -   `confusion_matrix.png`
+    -   `feature_importance.png`
+    -   `roc_curve.png`
+
+## 4. Operational Monitoring
+Integrated **Grafana Dashboards** for system health and model drift.
+-   **Infrastructure:** CPU, Memory, and Network I/O tracking.
+-   **Data Drift:** Monitoring concept drift in valid/test datasets.
+-   **Prediction Stats:** Aggregate counts of Normal vs. Fraudulent traffic.
+
+## 5. Architecture & Fixes
+-   **Backend:** FastAPI with `src/serve.py` updated to proxy MLflow artifacts.
+-   **MLflow:** Configured with `--serve-artifacts` to fix UI visibility issues.
+-   **Frontend:** React (Vite+TS) with a responsive, premium design using TailwindCSS.
+
+## 6. Data & Pipeline Automation
+-   **Data Version Control (DVC):** Fully integrated with MinIO (`s3://dvc-data`) for dataset versioning. Dataset integrity is automated via hash-based tracking.
+-   **CI/CD Pipeline:** Jenkins-based automated pipeline (`Jenkinsfile`) running inside `jenkins-docker`.
+    -   **Builds:** Docker images for all services.
+    -   **Tests:** Automated `pytest` execution.
+    -   **Deploy:** Docker Compose orchestration.
+
+## 7. Operational Guide (System Restart)
+To bring the entire system back online after a shutdown:
+
+### 1. Start Jenkins (CI Server)
+Use `start` since the container persists:
+```bash
+docker start jenkins
+```
+
+### 2. Start Application Stack (Runtime)
+This boots up the API, MLflow, MinIO, Redis, and Grafana:
+```bash
+docker compose up -d
+```
+
+### 3. Start Frontend (User Interface)
+Run this in a separate terminal:
+```bash
+cd Frontend
+npm run dev
+```
+
+### 4. Access Points
+-   **Web App:** [http://localhost:5173](http://localhost:5173)
+-   **Grafana:** [http://localhost:3000](http://localhost:3000)
+-   **Jenkins:** [http://localhost:8080](http://localhost:8080)
+-   **MinIO:** [http://localhost:9001](http://localhost:9001)
+-   **MLflow:** [http://localhost:5000](http://localhost:5000)

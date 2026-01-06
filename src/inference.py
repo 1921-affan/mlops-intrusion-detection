@@ -130,6 +130,8 @@ def predict_on_raw_df(raw_df: pd.DataFrame) -> Dict[str, Any]:
         start_time = time.time()
 
         feature_list = row.tolist()
+        # DEMO FIX: Round to 4 decimals to ensure cache hits despite float precision
+        feature_list = [round(x, 4) for x in feature_list]
 
         # ✅ CHECK CACHE FIRST
         cached_pred = get_cached_prediction(feature_list)

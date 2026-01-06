@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 import time
 import yaml
 import redis
@@ -68,9 +69,17 @@ def run_consumer():
             block=cfg["consumer"]["block_ms"],
         )
 
-        # 🔥 Redis stream lag (authoritative)
-        pending_info = r.xpending(stream, group)
-        REDIS_STREAM_LAG.set(pending_info["pending"])
+        # 🔥 Redis stream lag (Backlog)
+        try:
+            groups = r.xinfo_groups(stream)
+            for g in groups:
+                if g["name"] == group:
+                    # 'lag' is available in Redis 6.2+
+                    current_lag = g.get("lag", 0)
+                    REDIS_STREAM_LAG.set(current_lag)
+                    break
+        except Exception:
+            pass # resilient to redis errors
 
         for _, msgs in messages:
             rows = []
@@ -84,7 +93,33 @@ def run_consumer():
                 continue
 
             df = pd.DataFrame(rows)
-            predict_on_raw_df(df)
+            result = predict_on_raw_df(df)
+            
+            # 📝 LOGGING TO REDIS FOR FRONTEND
+            predictions = result["pred_labels"].tolist()
+            logs_to_push = []
+            
+            for idx, pred in enumerate(predictions):
+                # Ensure we don't go out of bounds if something dropped rows (unlikely but safe)
+                if idx >= len(rows):
+                    break
+                    
+                row_data = rows[idx]
+                log_entry = {
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "src_ip": row_data.get("src_ip", "N/A"),
+                    "dst_ip": row_data.get("dst_ip", "N/A"),
+                    "attack_type": row_data.get("attack_cat", "Unknown"),
+                    "prediction": int(pred),
+                    "label": int(row_data.get("label", -1))
+                }
+                logs_to_push.append(json.dumps(log_entry))
+
+            if logs_to_push:
+                # Push all logs (LIFO for "recent" view)
+                r.lpush("intrusion:logs", *logs_to_push)
+                # Keep only last 50 logs to save memory
+                r.ltrim("intrusion:logs", 0, 49)
 
             for msg_id in ids:
                 r.xack(stream, group, msg_id)

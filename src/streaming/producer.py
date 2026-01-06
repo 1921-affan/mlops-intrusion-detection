@@ -1,4 +1,5 @@
 import time
+import random
 import json
 import yaml
 import pandas as pd
@@ -48,9 +49,18 @@ def run_producer():
             batch = df.iloc[i:i + batch_size]
 
             for _, row in batch.iterrows():
+                row_dict = row.to_dict()
+                
+                # MOCK DATA: Generate wider range of random IPs
+                # Source: Random 192.168.X.Y
+                row_dict['src_ip'] = f"192.168.{random.randint(0, 255)}.{random.randint(2, 254)}"
+                
+                # Dest: Random 10.X.Y.Z
+                row_dict['dst_ip'] = f"10.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(2, 254)}"
+
                 r.xadd(
                     stream,
-                    {"row": json.dumps(row.to_dict())}
+                    {"row": json.dumps(row_dict)}
                 )
 
             time.sleep(sleep_s)

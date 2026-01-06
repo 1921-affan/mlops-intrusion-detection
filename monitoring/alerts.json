@@ -1,0 +1,41 @@
+{
+    "name": "MLOps Alerts",
+    "rules": [
+        {
+            "alert": "HighInferenceLatency",
+            "expr": "histogram_quantile(0.95, sum(rate(inference_latency_seconds_bucket[1m])) by (le)) > 0.5",
+            "for": "1m",
+            "labels": {
+                "severity": "critical"
+            },
+            "annotations": {
+                "summary": "High Inference Latency",
+                "description": "P95 Latency is above 0.5s for more than 1 minute."
+            }
+        },
+        {
+            "alert": "RedisConsumerLagHigh",
+            "expr": "redis_stream_consumer_lag > 100",
+            "for": "2m",
+            "labels": {
+                "severity": "warning"
+            },
+            "annotations": {
+                "summary": "Redis Consumer Lag High",
+                "description": "Consumer lag is greater than 100 for more than 2 minutes."
+            }
+        },
+        {
+            "alert": "NoInferenceRequests",
+            "expr": "rate(inference_requests_total[5m]) == 0",
+            "for": "5m",
+            "labels": {
+                "severity": "warning"
+            },
+            "annotations": {
+                "summary": "No Inference Requests",
+                "description": "No inference requests received in the last 5 minutes."
+            }
+        }
+    ]
+}

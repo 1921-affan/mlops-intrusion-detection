@@ -30,10 +30,7 @@ services:
     volumes:
       - mlflow_db:/mlflow
     command: >
-      mlflow server
-      --backend-store-uri sqlite:////mlflow/mlflow.db
-      --default-artifact-root s3://mlflow-artifacts
-      --host 0.0.0.0
+      mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --serve-artifacts --artifacts-destination s3://mlflow-artifacts --host 0.0.0.0
     ports:
       - "5000:5000"
 
@@ -89,9 +86,11 @@ services:
       - prometheus
     volumes:
       - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
 
 volumes:
   minio_data: {}
   mlflow_db: {}
   grafana_data: {}
-
