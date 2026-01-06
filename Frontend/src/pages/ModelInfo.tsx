@@ -114,6 +114,45 @@ const ModelInfo: React.FC = () => {
                 </div>
             </div>
 
+// Helper component to load image via API (bypassing Ngrok warning)
+            const ArtifactImage: React.FC<{ filename: string }> = ({filename}) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+            const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+                let active = true;
+            apiService.getArtifact(filename)
+            .then(url => {
+                if (active) {
+                setImageUrl(url);
+            setLoading(false);
+                }
+            })
+            .catch(err => {
+                console.error(`Failed to load ${filename}`, err);
+            if (active) setLoading(false);
+            });
+            
+        return () => {
+                active = false;
+            // Cleanup blob URL to avoid memory leaks
+            if (imageUrl) URL.revokeObjectURL(imageUrl);
+        };
+    }, [filename]);
+
+            if (loading) return <div className="h-48 bg-gray-100 rounded animate-pulse w-full"></div>;
+            if (!imageUrl) return <div className="h-48 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm">Failed to load</div>;
+
+            return (
+            <img
+                src={imageUrl}
+                alt={filename}
+                className="w-full h-auto rounded shadow-sm"
+            />
+            );
+};
+
+            // ... inside main component ...
             {/* Artifacts (Plots) */}
             <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
                 <div className="px-4 py-5 sm:px-6">
@@ -125,11 +164,7 @@ const ModelInfo: React.FC = () => {
                         {info.artifacts?.filter(f => f.endsWith('.png')).map((file) => (
                             <div key={file} className="border border-gray-200 rounded-lg p-2 bg-gray-50">
                                 <div className="text-xs font-medium text-gray-500 mb-2 truncate" title={file}>{file}</div>
-                                <img
-                                    src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/model-artifact/${file}`}
-                                    alt={file}
-                                    className="w-full h-auto rounded shadow-sm"
-                                />
+                                <ArtifactImage filename={file} />
                             </div>
                         ))}
                         {(!info.artifacts || info.artifacts.length === 0) && (

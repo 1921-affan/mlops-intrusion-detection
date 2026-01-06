@@ -66,6 +66,14 @@ export const apiService = {
         const response = await api.get<{ logs: any[] }>('/logs');
         return response.data;
     },
+
+    // Fetch artifact image as Blob (to bypass Ngrok warning)
+    getArtifact: async (filename: string) => {
+        const response = await api.get(`/model-artifact/${filename}`, {
+            responseType: 'blob'
+        });
+        return URL.createObjectURL(response.data);
+    },
 };
 
 export default apiService;
