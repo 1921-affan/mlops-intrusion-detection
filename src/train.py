@@ -91,9 +91,12 @@ def main():
         # =========================================================
         # 1️⃣ LOG PARAMETERS (VISIBLE IN UI)
         # =========================================================
+        # Log all model parameters from config
+        mlflow.log_params(config["model"])
+        
+        # Log additional training context
         mlflow.log_params({
             "model_type": "XGBoost",
-            "top_k_features": int(config["model"]["top_k_features"]),
             "train_rows": int(X_tr.shape[0]),
             "val_rows": int(X_val.shape[0]),
             "num_features_full": int(X_tr.shape[1]),
@@ -102,7 +105,12 @@ def main():
         # =========================================================
         # 2️⃣ BASE MODEL (FULL FEATURES)
         # =========================================================
-        base_model = create_xgb_model()
+        # =========================================================
+        # 2️⃣ BASE MODEL (FULL FEATURES)
+        # =========================================================
+        # Pass config parameters (exclude top_k_features as it's not a model param)
+        model_params = {k: v for k, v in config["model"].items() if k != "top_k_features"}
+        base_model = create_xgb_model(**model_params)
         base_model.fit(X_tr, y_tr)
 
         train_acc = float(evaluate_model(base_model, X_tr, y_tr, "train_full"))
@@ -159,7 +167,10 @@ def main():
         # =========================================================
         # 6️⃣ TOP-K MODEL
         # =========================================================
-        model_top = create_xgb_model()
+        # =========================================================
+        # 6️⃣ TOP-K MODEL
+        # =========================================================
+        model_top = create_xgb_model(**model_params)
         model_top.fit(X_tr_top, y_tr)
 
         y_val_pred = model_top.predict(X_val_top)

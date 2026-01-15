@@ -5,16 +5,21 @@ import shap
 from sklearn.metrics import accuracy_score, classification_report
 
 
-def create_xgb_model():
-    return xgb.XGBClassifier(
-        n_estimators=400,
-        learning_rate=0.05,
-        max_depth=7,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        eval_metric="logloss",
-        random_state=42
-    )
+def create_xgb_model(**kwargs):
+    # Default values matching previous hardcoded settings if not provided
+    params = {
+        "n_estimators": 400,
+        "learning_rate": 0.05,
+        "max_depth": 7,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "eval_metric": "logloss",
+        "random_state": 42
+    }
+    # Override defaults with provided kwargs
+    params.update(kwargs)
+    
+    return xgb.XGBClassifier(**params)
 
 
 def evaluate_model(model, X, y, name: str = "dataset"):
