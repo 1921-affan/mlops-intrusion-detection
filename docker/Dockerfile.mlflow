@@ -1,0 +1,5 @@
+FROM ghcr.io/mlflow/mlflow:v2.10.2
+
+# The base MLflow image does NOT include boto3 (AWS SDK).
+# Without it, MLflow cannot upload artifacts to S3.
+RUN pip install --no-cache-dir boto3
