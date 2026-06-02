@@ -8,8 +8,9 @@ const Home: React.FC = () => {
     const [statusLoading, setStatusLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
 
-    // Grafana Integration
-    const GRAFANA_BASE = "http://localhost:3000/d-solo/inference-monitor/real-time-inference-monitoring";
+    // Derive host dynamically — works both locally and on EC2
+    const host = window.location.hostname;
+    const GRAFANA_BASE = `http://${host}:3000/d-solo/inference-monitor/real-time-inference-monitoring`;
     const ORG_ID = "1";
     const REFRESH = "5s";
     const THEME = "light";

@@ -209,3 +209,14 @@ def get_logs():
             continue
             
     return {"logs": parsed_logs}
+
+
+# =========================
+# Serve React Frontend (built static files)
+# This MUST be last — it catches all unmatched routes.
+# =========================
+import os
+from fastapi.staticfiles import StaticFiles
+
+if os.path.exists("static"):
+    app.mount("/", StaticFiles(directory="static", html=True), name="frontend")

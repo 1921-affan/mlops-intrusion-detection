@@ -1,3 +1,14 @@
+# Stage 1: Build React frontend
+FROM node:20-slim AS frontend-build
+WORKDIR /frontend
+COPY Frontend/package.json Frontend/package-lock.json ./
+RUN npm ci
+COPY Frontend/ .
+# Empty base URL so API calls are relative (same origin)
+ENV VITE_API_BASE_URL=""
+RUN npm run build
+
+# Stage 2: Python API + built frontend
 FROM python:3.11-slim
 
 # ---------- Environment ----------
@@ -30,11 +41,11 @@ RUN pip install --upgrade pip \
 COPY src ./src
 COPY configs ./configs
 
-# ---------- MLflow + MinIO (NON-SECRET for local dev) ----------
+# ---------- Copy built React frontend ----------
+COPY --from=frontend-build /frontend/dist ./static
+
+# ---------- Runtime env defaults (overridden by docker-compose env vars) ----------
 ENV MLFLOW_TRACKING_URI=http://mlflow:5000
-ENV MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-ENV AWS_ACCESS_KEY_ID=minioadmin
-ENV AWS_SECRET_ACCESS_KEY=minioadmin
 
 EXPOSE 8000
 

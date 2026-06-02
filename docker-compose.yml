@@ -6,31 +6,16 @@ services:
     ports:
       - "6379:6379"
 
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.10.2
-    depends_on:
-      - minio
     environment:
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
     volumes:
       - mlflow_db:/mlflow
     command: >
-      mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --serve-artifacts --artifacts-destination s3://mlflow-artifacts --host 0.0.0.0
+      mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --serve-artifacts --artifacts-destination s3://${S3_BUCKET_NAME}/mlflow-artifacts --host 0.0.0.0
     ports:
       - "5000:5000"
 
@@ -41,6 +26,12 @@ services:
     depends_on:
       - redis
       - mlflow
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_REGISTRY_URI: http://mlflow:5000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
     ports:
       - "8000:8000"
 
@@ -62,10 +53,9 @@ services:
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_REGISTRY_URI: http://mlflow:5000
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
     ports:
       - "8001:8001"
 
@@ -91,6 +81,5 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
 
 volumes:
-  minio_data: {}
   mlflow_db: {}
   grafana_data: {}

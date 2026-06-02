@@ -2,9 +2,10 @@ import React from 'react';
 import { ExternalLink, BarChart2, Database } from 'lucide-react';
 
 const Monitoring: React.FC = () => {
-    // Assuming these services are running on localhost ports as per docker-compose
-    const GRAFANA_URL = "http://localhost:3000";
-    const MLFLOW_URL = "http://localhost:5000";
+    // Derive host dynamically — works both locally and on EC2
+    const host = window.location.hostname;
+    const GRAFANA_URL = `http://${host}:3000`;
+    const MLFLOW_URL = `http://${host}:5000`;
 
     const openLink = (url: string) => {
         window.open(url, '_blank');

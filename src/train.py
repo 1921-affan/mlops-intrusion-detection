@@ -65,7 +65,13 @@ def main():
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     # ================= MLFLOW =================
-    mlflow.set_tracking_uri("http://localhost:5000")
+    # Use env var (set by docker-compose) or fall back to config.yaml value
+    import os
+    tracking_uri = os.environ.get(
+        "MLFLOW_TRACKING_URI",
+        config["mlflow"].get("tracking_uri", "http://localhost:5000")
+    )
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 
     # ================= DATA =================

@@ -4,8 +4,9 @@ paths:
   artifacts_dir: "artifacts"
 
 mlflow:
-  # we will run an mlflow server on this URL
-  tracking_uri: "http://127.0.0.1:5000"
+  # Inside Docker: containers talk to each other by service name.
+  # For local manual runs, override with: MLFLOW_TRACKING_URI=http://localhost:5000
+  tracking_uri: "http://mlflow:5000"
   experiment_name: "unsw_intrusion_detection"
   run_name: "xgboost_shap_top20"
 

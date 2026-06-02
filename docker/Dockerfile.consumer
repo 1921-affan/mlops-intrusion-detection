@@ -36,15 +36,10 @@ COPY src ./src
 COPY configs ./configs
 
 # -------------------------------------------------------------------
-# MLflow + MinIO config
+# Runtime env defaults (AWS creds injected by docker-compose at runtime)
 # -------------------------------------------------------------------
 ENV MLFLOW_TRACKING_URI=http://mlflow:5000
 ENV MLFLOW_REGISTRY_URI=http://mlflow:5000
-ENV MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-ENV AWS_ACCESS_KEY_ID=minioadmin
-ENV AWS_SECRET_ACCESS_KEY=minioadmin
-ENV AWS_DEFAULT_REGION=us-east-1
-
 ENV PYTHONPATH=/app
 
 CMD ["python", "-m", "src.streaming.consumer"]
