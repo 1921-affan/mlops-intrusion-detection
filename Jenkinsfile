@@ -78,7 +78,7 @@ pipeline {
                     cd ~/mlops-intrusion-detection
 
                     # Pull latest code
-                    git pull origin main
+                    git pull origin master
 
                     # Rebuild and restart all containers
                     docker compose down
