@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Dynamically derive the API base URL from the page's origin.
+// This makes it work on EC2, localhost, or any other host without rebuilding.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+    || `${window.location.protocol}//${window.location.hostname}:8000`;
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true', // Bypasses Ngrok warning page
