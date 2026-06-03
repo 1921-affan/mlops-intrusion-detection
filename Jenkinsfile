@@ -67,8 +67,16 @@ pipeline {
                 sh '''
                 # Write the SSH key to a temp file (cleaning up any Windows carriage returns)
                 mkdir -p ~/.ssh
-                printf "%s" "${EC2_SSH_KEY}" | tr -d '\r' > /tmp/ec2_key.pem
+                printf "%s" "${EC2_SSH_KEY}" | tr -d '\\r' > /tmp/ec2_key.pem
                 chmod 600 /tmp/ec2_key.pem
+
+                # Safe debugging of key structure (does not print the actual secret)
+                echo "--- KEY DEBUG INFO ---"
+                echo "Line count: \$(wc -l < /tmp/ec2_key.pem)"
+                echo "Char count: \$(wc -m < /tmp/ec2_key.pem)"
+                echo "First line: \$(head -n 1 /tmp/ec2_key.pem)"
+                echo "Last line: \$(tail -n 1 /tmp/ec2_key.pem)"
+                echo "----------------------"
 
                 # Disable strict host key checking for automation
                 ssh -o StrictHostKeyChecking=no \
