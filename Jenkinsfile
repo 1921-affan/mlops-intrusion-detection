@@ -31,8 +31,8 @@ pipeline {
                 echo "🔍 Running Python syntax check..."
                 sh '''
                 docker run --rm \
-                  -v "$PWD:/app" \
-                  -w /app \
+                  --volumes-from jenkins \
+                  -w "$WORKSPACE" \
                   python:3.11 \
                   python -m compileall src
                 '''
@@ -44,8 +44,8 @@ pipeline {
                 echo "🧪 Running unit tests..."
                 sh '''
                 docker run --rm \
-                  -v "$PWD:/app" \
-                  -w /app \
+                  --volumes-from jenkins \
+                  -w "$WORKSPACE" \
                   python:3.11 \
                   sh -c "pip install pytest pyyaml && pytest tests/ -v"
                 '''
