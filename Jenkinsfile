@@ -65,9 +65,9 @@ pipeline {
             steps {
                 echo "🚀 Deploying to AWS EC2..."
                 sh '''
-                # Write the SSH key to a temp file
+                # Write the SSH key to a temp file (cleaning up any Windows carriage returns)
                 mkdir -p ~/.ssh
-                echo "${EC2_SSH_KEY}" > /tmp/ec2_key.pem
+                printf "%s" "${EC2_SSH_KEY}" | tr -d '\r' > /tmp/ec2_key.pem
                 chmod 600 /tmp/ec2_key.pem
 
                 # Disable strict host key checking for automation
