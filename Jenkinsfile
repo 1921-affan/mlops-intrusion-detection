@@ -64,24 +64,9 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 echo "🚀 Deploying to AWS EC2..."
-                sh '''
-                # Write the SSH key to a temp file (cleaning up any Windows carriage returns)
-                mkdir -p ~/.ssh
-                printf "%s" "${EC2_SSH_KEY}" | tr -d '\\r' > /tmp/ec2_key.pem
-                chmod 600 /tmp/ec2_key.pem
-
-                # Safe debugging of key structure (does not print the actual secret)
-                echo "--- KEY DEBUG INFO ---"
-                echo "Line count: \$(wc -l < /tmp/ec2_key.pem)"
-                echo "Char count: \$(wc -m < /tmp/ec2_key.pem)"
-                echo "First line: \$(head -n 1 /tmp/ec2_key.pem)"
-                echo "Last line: \$(tail -n 1 /tmp/ec2_key.pem)"
-                echo "----------------------"
-
-                # Disable strict host key checking for automation
-                ssh -o StrictHostKeyChecking=no \
-                    -i /tmp/ec2_key.pem \
-                    ubuntu@${EC2_HOST} << 'ENDSSH'
+                sshagent(credentials: ['EC2_SSH_KEY']) {
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} << 'ENDSSH'
                     set -e
                     cd ~/mlops-intrusion-detection
 
@@ -97,9 +82,8 @@ pipeline {
                     docker compose ps
                     echo "✅ Deployment complete"
 ENDSSH
-                # Clean up key
-                rm -f /tmp/ec2_key.pem
-                '''
+                    '''
+                }
             }
         }
     }
@@ -110,7 +94,6 @@ ENDSSH
         }
         failure {
             echo "❌ Pipeline failed — check logs above for details"
-            sh 'rm -f /tmp/ec2_key.pem || true'  // always clean up key on failure too
         }
     }
 }
