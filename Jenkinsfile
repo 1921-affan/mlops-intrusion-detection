@@ -84,7 +84,7 @@ Review your changes before approving.
 Aborting will NOT affect the running system.
                         """,
                         ok: 'Deploy Now',
-                        submitter: 'admin'   // only admin can approve
+                        submitter: 'affanyasir1932,affanyasir'   // allow our users to approve
                     )
                 }
             }
