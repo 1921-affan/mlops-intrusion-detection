@@ -67,6 +67,29 @@ pipeline {
             }
         }
 
+        stage('Approve Deployment') {
+            steps {
+                echo "⏳ Waiting for manual approval before deploying to production..."
+                timeout(time: 30, unit: 'MINUTES') {
+                    input(
+                        message: """
+🚀 Deploy to Production EC2?
+
+All checks passed:
+  ✅ Python syntax lint
+  ✅ Unit tests (pytest)
+  ✅ Docker images built
+
+Review your changes before approving.
+Aborting will NOT affect the running system.
+                        """,
+                        ok: 'Deploy Now',
+                        submitter: 'admin'   // only admin can approve
+                    )
+                }
+            }
+        }
+
         stage('Deploy to EC2') {
             steps {
                 echo "🚀 Deploying to AWS EC2..."
@@ -93,6 +116,7 @@ ENDSSH
             }
         }
     }
+
 
     post {
         success {
