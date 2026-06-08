@@ -12,6 +12,12 @@ pipeline {
         EC2_SSH_KEY = credentials('EC2_SSH_KEY')     // SSH private key (.pem content)
     }
 
+    triggers {
+        githubPush()               // fires instantly on GitHub webhook push
+        pollSCM('H/5 * * * *')    // fallback: poll every 5 min if webhook misses
+    }
+
+
     stages {
 
         stage('Prepare Workspace') {
