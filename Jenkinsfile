@@ -12,10 +12,7 @@ pipeline {
         EC2_SSH_KEY = credentials('EC2_SSH_KEY')     // SSH private key (.pem content)
     }
 
-    triggers {
-        githubPush()               // fires instantly on GitHub webhook push
-        pollSCM('H/5 * * * *')    // fallback: poll every 5 min if webhook misses
-    }
+    // Pipeline runs on manual 'Build Now' only — no auto-trigger on push
 
 
     stages {
@@ -67,27 +64,6 @@ pipeline {
             }
         }
 
-        stage('Approve Deployment') {
-            steps {
-                echo "⏳ Waiting for manual approval before deploying to production..."
-                timeout(time: 30, unit: 'MINUTES') {
-                    input(
-                        message: """
-🚀 Deploy to Production EC2?
-
-All checks passed:
-  ✅ Python syntax lint
-  ✅ Unit tests (pytest)
-  ✅ Docker images built
-
-Review your changes before approving.
-Aborting will NOT affect the running system.
-                        """,
-                        ok: 'Deploy Now'
-                    )
-                }
-            }
-        }
 
         stage('Deploy to EC2') {
             steps {
