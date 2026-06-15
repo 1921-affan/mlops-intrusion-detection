@@ -70,22 +70,16 @@ pipeline {
                 echo "🚀 Deploying to AWS EC2..."
                 sshagent(credentials: ['EC2_SSH_KEY']) {
                     sh '''
-                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} << 'ENDSSH'
-                    set -e
-                    cd ~/mlops-intrusion-detection
-
-                    # Pull latest code
-                    git pull origin master
-
-                    # Rebuild and restart all containers
-                    docker compose down
-                    docker compose up --build -d
-
-                    # Quick sanity check
-                    sleep 5
-                    docker compose ps
-                    echo "✅ Deployment complete"
-ENDSSH
+                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} "
+                      set -e
+                      cd ~/mlops-intrusion-detection
+                      git pull origin master
+                      docker compose down
+                      docker compose up --build -d
+                      sleep 5
+                      docker compose ps
+                      echo '✅ Deployment complete'
+                    "
                     '''
                 }
             }
