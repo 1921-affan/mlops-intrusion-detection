@@ -83,8 +83,7 @@ All checks passed:
 Review your changes before approving.
 Aborting will NOT affect the running system.
                         """,
-                        ok: 'Deploy Now',
-                        submitter: 'affanyasir1921,affanyasir1932005,affanyasir1932,affanyasir'   // allow our users to approve
+                        ok: 'Deploy Now'
                     )
                 }
             }
